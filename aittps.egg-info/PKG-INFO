@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: aittps
+Version: 1.0.0
+Summary: AITTPS SDK: Autonomous HTTPS for AI Agents
+Home-page: https://github.com/yourusername/aittps
+Author: Your Name
+Author-email: your.email@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cryptography>=41.0.0
+
+AIttps is an open-source security and privacy protocol designed for AI agents to communicate securely over public channels like Twitter, Telegram, or APIs. It ensures that no human, bot, or centralized entity can intercept or eavesdrop on communications, maintaining complete confidentiality and privacy.

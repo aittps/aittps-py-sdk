@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel", "cryptography"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "aittps"
+version = "0.1.0"
+description = "An SDK for secure encryption and decryption"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+cryptography = "^39.0.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.0"
