@@ -1,1 +1,0 @@
-from .aittps import AITTPS
