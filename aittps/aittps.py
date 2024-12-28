@@ -1,15 +1,14 @@
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 import os
 
+
 class AITTPS:
     @staticmethod
-    def generate_ecc_key_pair():
+    def generate_new_key_pair():
         """Generates a new ECC P-521 key pair."""
         private_key = ec.generate_private_key(ec.SECP521R1(), default_backend())
         public_key = private_key.public_key()
@@ -38,79 +37,69 @@ class AITTPS:
         return public_pem
 
     @staticmethod
-    def decrypt_encrypted_symmetric_key(encrypted_msg: bytes, private_pem: bytes):
-        """
-        Decrypts the symmetric key sent by the client using the server's private key.
-        `encrypted_msg` is encrypted with the recipient's public key.
-        """
-        try:
-            # Ensure private key is loaded correctly
-            private_key = serialization.load_pem_private_key(
-                private_pem, password=None, backend=default_backend()
-            )
-            # Decrypt the symmetric key using the private key
-            decrypted_symmetric_key = private_key.decrypt(
-                encrypted_msg,
-                padding.PKCS1v15()  # Adjust padding based on your key type
-            )
-            return decrypted_symmetric_key
-        except Exception as e:
-            print(f"Error loading or decrypting the private key: {e}")
-            raise
+    def derive_session_key(private_pem: bytes, peer_public_pem: bytes):
+        """Derives a shared session key using ECC ECDH."""
+        # Load private key
+        private_key = serialization.load_pem_private_key(private_pem, password=None, backend=default_backend())
+        # Load peer's public key
+        peer_public_key = serialization.load_pem_public_key(peer_public_pem, backend=default_backend())
+        # Perform ECDH key exchange
+        shared_key = private_key.exchange(ec.ECDH(), peer_public_key)
+        # Derive a symmetric key using HKDF
+        derived_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,  # 256-bit key for AES
+            salt=None,
+            info=b'handshake data',
+            backend=default_backend()
+        ).derive(shared_key)
+        return derived_key
 
     @staticmethod
-    def encrypt_data_with_aes(symmetric_key: bytes, public_key: bytes):
-        """
-        Encrypts data using AES and GCM mode. The AES symmetric key is encrypted
-        using the recipient's RSA public key.
-        """
-        # Ensure the symmetric key is of valid length for AES (e.g., 256 bits)
-        if len(symmetric_key) not in [16, 24, 32]:  # AES supports key sizes of 128, 192, or 256 bits
-            raise ValueError(f"Invalid AES key size: {len(symmetric_key) * 8} bits.")
-        
-        # Generate a random IV for AES encryption
-        iv = os.urandom(12)  # GCM typically uses a 12-byte IV
-        
-        # Perform AES encryption in GCM mode
+    def encrypt_data_with_aes(data: bytes, symmetric_key: bytes):
+        """Encrypts data using AES GCM."""
+        if len(symmetric_key) not in [16, 24, 32]:  # AES key lengths: 128, 192, or 256 bits
+            raise ValueError("Invalid AES key size.")
+        iv = os.urandom(12)  # Generate a random IV (12 bytes for GCM)
         cipher = Cipher(algorithms.AES(symmetric_key), modes.GCM(iv), backend=default_backend())
         encryptor = cipher.encryptor()
-        
-        # Example: data to be encrypted (could be your actual data)
-        data = b"Sensitive Data"
-        encrypted_data = encryptor.update(data) + encryptor.finalize()
-        
-        # Load the RSA public key
-        public_key_obj = serialization.load_pem_public_key(public_key, backend=default_backend())
-        
-        # Encrypt the symmetric key using RSA (OAEP padding)
-        encrypted_symmetric_key = public_key_obj.encrypt(
-            symmetric_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-        
-        return encrypted_data, encrypted_symmetric_key, iv
-        
+        ciphertext = encryptor.update(data) + encryptor.finalize()
+        return iv + ciphertext + encryptor.tag  # Return IV + encrypted data + GCM tag
+
     @staticmethod
-    def decrypt_data_with_aes(encrypted_msg: bytes, symmetric_key: bytes):
-        """Decrypts encrypted data using the provided AES symmetric key."""
-        iv = encrypted_msg[:12]  # Extract the IV
-        ciphertext = encrypted_msg[12:-16]  # Extract the ciphertext (after IV and before tag)
-        auth_tag = encrypted_msg[-16:]  # Extract the authentication tag (last 16 bytes)
-
-        cipher = Cipher(algorithms.AES(symmetric_key), modes.GCM(iv, auth_tag), backend=default_backend())  # Include auth_tag in the cipher
+    def decrypt_data_with_aes(encrypted_data: bytes, symmetric_key: bytes):
+        """Decrypts data using AES GCM."""
+        iv = encrypted_data[:12]  # Extract the IV
+        tag = encrypted_data[-16:]  # Extract the GCM tag
+        ciphertext = encrypted_data[12:-16]  # Extract the ciphertext
+        cipher = Cipher(algorithms.AES(symmetric_key), modes.GCM(iv, tag), backend=default_backend())
         decryptor = cipher.decryptor()
-
-        padded_msg = decryptor.update(ciphertext) + decryptor.finalize()
-
-        # Return the decrypted message
-        return padded_msg.decode()
+        decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
+        return decrypted_data
 
     @staticmethod
     def generate_random_aes_key():
         """Generates a random 256-bit AES symmetric key."""
         return os.urandom(32)
 
+
+# Example Usage
+if __name__ == "__main__":
+    # Generate ECC key pair
+    private_key, public_key = AITTPS.generate_new_key_pair()
+
+    # Derive shared session key
+    peer_private_key, peer_public_key = AITTPS.generate_new_key_pair()
+    session_key = AITTPS.derive_session_key(private_key, peer_public_key)
+    print(f"Derived Session Key: {session_key.hex()}")
+
+    # Encrypt and decrypt a message
+    message = b"Sensitive Data"
+    encrypted_message = AITTPS.encrypt_data_with_aes(message, session_key)
+    print(f"Encrypted Message: {encrypted_message.hex()}")
+    decrypted_message = AITTPS.decrypt_data_with_aes(encrypted_message, session_key)
+    print(f"Decrypted Message: {decrypted_message.decode()}")
+
+    # Generate a random AES key
+    random_aes_key = AITTPS.generate_random_aes_key()
+    print(f"Random AES Key: {random_aes_key.hex()}")
