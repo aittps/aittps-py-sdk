@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="aittps",
-    version="1.0.0",
+    version="1.1.0",
     description="AITTPS SDK: Autonomous HTTPS for AI Agents",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
