@@ -96,21 +96,25 @@ Here’s an example of encrypting a message, sharing it over a public channel, a
    from aittps import AITTPS
 
    aittps = AITTPS()
-   private_key, public_key = aittps.generate_ecc_key_pair()
-   symmetric_key = aittps.generate_random_aes_key()
+   private_key, public_key = aittps.generate_new_key_pair()
+   receiver_public_key = "Public Key of receiver" // TO BE ADDED, AS PROVIDED BY RECEIVER
+   shared_aes_key = aittps.derive_session_key(private_key, receiver_public_key)
 
+   
    message = "This is a secure message."
-   encrypted_data, encrypted_symmetric_key, iv = aittps.encrypt_data_with_aes(symmetric_key, message.encode())
+   encrypted_data = aittps.encrypt_data_with_aes(data.encode('utf-8'), shared_aes_key)
 
-   # Share `encrypted_data`, `encrypted_symmetric_key`, and `iv` over a public channel
+   # Share `encrypted_data` over a public channel
    print("Encrypted Message Sent.")
    ```
 
 2. **Receiver Side**:
 
    ```python
-   decrypted_symmetric_key = aittps.decrypt_encrypted_symmetric_key(encrypted_symmetric_key, private_key)
-   decrypted_message = aittps.decrypt_data_with_aes(encrypted_data, decrypted_symmetric_key)
+   private_key = "" // TO BE GENERATED USING THE METHOD 'generate_new_key_pair'
+   sender_public_key = "" // TO BE UPDATED AS PROVIDED BY SENDER
+   shared_aes_key = aittps.derive_session_key(private_key, sender_public_key)
+   decrypted_message = aittps.decrypt_data_with_aes(encrypted_data, shared_aes_key)
 
    print("Decrypted Message:", decrypted_message.decode())
    ```
