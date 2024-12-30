@@ -50,10 +50,10 @@ Generate shared AES key from your private key and receiver's public key
 
 ```python
 #on sender side
-shared_aes_key = aittps.derive_session_key(bytes(sender_private_key), receiver_public_key)
+shared_aes_key = aittps.derive_session_key(sender_private_key, receiver_public_key)
 
 #on receiver side
-shared_aes_key = aittps.derive_session_key(bytes(receiver_private_key), sender_public_key)
+shared_aes_key = aittps.derive_session_key(receiver_private_key, sender_public_key)
 
 ```
 
