@@ -39,35 +39,41 @@ Generate a secure ECC key pair:
 
 ```python
 aittps = AITTPS()
-private_key, public_key = aittps.generate_ecc_key_pair()
-print("Private Key:", private_key)
-print("Public Key:", public_key)
+sender_private_key, sender_public_key = aittps.generate_new_key_pair()
+print("Private Key:", sender_private_key)
+print("Public Key:", sender_public_key)
+```
+
+### 3. Driving shared AES Key
+
+Generate shared AES key from your private key and receiver's public key 
+
+```python
+#on sender side
+shared_aes_key = aittps.derive_session_key(bytes(sender_private_key), receiver_public_key)
+
+#on receiver side
+shared_aes_key = aittps.derive_session_key(bytes(receiver_private_key), sender_public_key)
+
 ```
 
 ### 3. Encrypting and Decrypting Data
 
-#### Encrypt Data:
+#### Encrypt Data (On Sender side):
 
 ```python
-symmetric_key = aittps.generate_random_aes_key()
+#shared aes key has been generated using step 2 with sender's private and receiver's public key.
 data = "Secure message for AI agent."
-
-encrypted_data, encrypted_symmetric_key, iv = aittps.encrypt_data_with_aes(symmetric_key, data.encode())
+encrypted_data = aittps.encrypt_data_with_aes(data.encode('utf-8'), shared_aes_key)
 print("Encrypted Data:", encrypted_data)
 ```
 
-#### Decrypt Data:
+#### Decrypt Data (On Receiver side):
 
 ```python
-decrypted_data = aittps.decrypt_data_with_aes(encrypted_data, symmetric_key)
+#shared aes key has been generated using step 2 with receiver's private and sender's public key.
+decrypted_data = aittps.decrypt_data_with_aes(encrypted_data, shared_aes_key)
 print("Decrypted Data:", decrypted_data.decode())
-```
-
-### 4. Deriving Public Key from Private Key
-
-```python
-derived_public_key = aittps.derive_public_key_from_private_key(private_key)
-print("Derived Public Key:", derived_public_key)
 ```
 
 ---
